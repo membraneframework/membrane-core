@@ -21,7 +21,7 @@ defmodule Membrane.Core.Element do
   use GenServer
 
   alias Membrane.{Clock, Element, Sync}
-  alias Membrane.Core.Element.{MessageDispatcher, State}
+  alias Membrane.Core.Element.{HotPathController, MessageDispatcher, State}
   alias Membrane.Core.Message
   alias Membrane.ComponentPath
 
@@ -128,6 +128,16 @@ defmodule Membrane.Core.Element do
   @impl GenServer
   def handle_call(message, _from, state) do
     message |> MessageDispatcher.handle_message(:call, state)
+  end
+
+  @impl GenServer
+  def handle_info(Message.new(:buffer, buffers, _opts) = message, state) do
+    pad_ref = Message.for_pad(message)
+
+    case HotPathController.handle_buffer(pad_ref, buffers, state) do
+      {:match, state} -> {:noreply, state}
+      :no_match -> MessageDispatcher.handle_message(message, :info, state)
+    end
   end
 
   @impl GenServer

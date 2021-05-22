@@ -104,6 +104,7 @@ defmodule Membrane.Core.Element.ActionHandler do
        when cb in [
               :handle_caps,
               :handle_event,
+              :handle_process,
               :handle_process_list,
               :handle_end_of_stream
             ] do
@@ -120,6 +121,7 @@ defmodule Membrane.Core.Element.ActionHandler do
       action =
         case cb do
           :handle_event -> {:event, {pad, data}}
+          :handle_process -> {:buffer, {pad, data}}
           :handle_process_list -> {:buffer, {pad, data}}
           :handle_caps -> {:caps, {pad, data}}
           :handle_end_of_stream -> {:end_of_stream, pad}

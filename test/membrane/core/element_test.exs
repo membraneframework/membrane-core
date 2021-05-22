@@ -145,7 +145,7 @@ defmodule Membrane.Core.ElementTest do
 
     [
       Message.new(:demand, 10, for_pad: :output),
-      Message.new(:buffer, %Membrane.Buffer{payload: <<>>}, for_pad: :input),
+      Message.new(:buffer, [%Membrane.Buffer{payload: <<>>}], for_pad: :input),
       Message.new(:caps, :caps, for_pad: :input),
       Message.new(:event, %Membrane.Testing.Event{}, for_pad: :input),
       Message.new(:event, %Membrane.Testing.Event{}, for_pad: :output)
