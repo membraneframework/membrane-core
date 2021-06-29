@@ -55,7 +55,8 @@ defmodule Membrane.Core.Child.PadController do
       state =
         case Pad.availability_mode(info.availability) do
           :static ->
-            state |> Bunch.Access.update_in([:pads, :info], &(&1 |> Map.delete(name)))
+            # state |> Bunch.Access.update_in([:pads, :info], &(&1 |> Map.delete(name)))
+            state
 
           :dynamic ->
             add_to_currently_linking(this.pad_ref, state)
@@ -89,12 +90,12 @@ defmodule Membrane.Core.Child.PadController do
           end
         end)
 
-      if not Enum.empty?(static_unlinked) do
-        Membrane.Logger.warn("""
-        Some static pads remained unlinked: #{inspect(static_unlinked)}
-        State: #{inspect(state, pretty: true)}
-        """)
-      end
+      # if not Enum.empty?(static_unlinked) do
+      #   Membrane.Logger.warn("""
+      #   Some static pads remained unlinked: #{inspect(static_unlinked)}
+      #   State: #{inspect(state, pretty: true)}
+      #   """)
+      # end
 
       bin? = match?(%Membrane.Core.Bin.State{}, state)
 
@@ -272,7 +273,7 @@ defmodule Membrane.Core.Child.PadController do
 
   @spec init_pad_mode_data(map(), parsed_pad_props_t, PadModel.pad_info_t(), state_t()) :: map()
   defp init_pad_mode_data(
-         %{mode: :pull, direction: :input} = data,
+         %{mode: :pull, direction: :input, demand_mode: :manual} = data,
          props,
          _other_info,
          %Membrane.Core.Element.State{}
@@ -282,8 +283,29 @@ defmodule Membrane.Core.Child.PadController do
     %{input_buf: input_buf, demand: 0}
   end
 
-  defp init_pad_mode_data(%{mode: :pull, direction: :output}, _props, other_info, _state),
-    do: %{demand: 0, other_demand_unit: other_info[:demand_unit]}
+  defp init_pad_mode_data(
+         %{mode: :pull, direction: :input, demand_mode: :auto} = data,
+         _props,
+         _other_info,
+         %Membrane.Core.Element.State{} = state
+       ) do
+    demand_pads =
+      state.pads.info
+      |> Map.values()
+      |> Enum.filter(&(&1.direction == :output and data.name in &1.demand_inputs))
+      |> Enum.map(& &1.name)
+
+    Message.send(data.pid, :demand, state.demand_size, for_pad: data.other_ref)
+
+    %{demand: state.demand_size, demand_pads: demand_pads}
+  end
+
+  defp init_pad_mode_data(%{mode: :pull, direction: :output} = info, _props, other_info, _state),
+    do: %{
+      demand: 0,
+      other_demand_unit: other_info[:demand_unit],
+      demand_pads: Map.get(info, :demand_inputs, [])
+    }
 
   defp init_pad_mode_data(_data, _props, _other_info, _state), do: %{}
 

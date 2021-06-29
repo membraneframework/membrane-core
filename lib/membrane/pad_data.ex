@@ -62,5 +62,8 @@ defmodule Membrane.Pad.Data do
             sticky_messages: nil,
             input_buf: nil,
             demand: nil,
-            options: %{}
+            options: %{},
+            demand_pads: [],
+            demand_inputs: nil,
+            demand_mode: nil
 end

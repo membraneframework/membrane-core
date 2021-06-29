@@ -164,9 +164,19 @@ defmodule Membrane.Core.Child.PadsSpecs do
                 availability: [in: [:always, :on_request], default: :always],
                 caps: [validate: &Caps.Matcher.validate_specs/1],
                 mode: [in: [:pull, :push], default: :pull],
+                demand_mode: [
+                  in: [:auto, :manual],
+                  default: :manual
+                ],
+                demand_inputs: [
+                  default: []
+                ],
                 demand_unit: [
                   in: [:buffers, :bytes],
-                  require_if: &(&1.mode == :pull and (component == :bin or direction == :input))
+                  require_if:
+                    &(&1.mode == :pull and &1[:demand_mode] != :auto and
+                        (component == :bin or direction == :input)),
+                  default: :buffers
                 ],
                 options: [default: nil]
               ) do
