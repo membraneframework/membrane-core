@@ -75,8 +75,9 @@ defmodule Membrane.Mixfile do
         Parent: [~r/^Membrane\.(Parent|ParentSpec)($|\.)/],
         Child: [~r/^Membrane\.(Child|ChildEntry)($|\.)/],
         Communication: [
-          ~r/^Membrane\.(Buffer|Payload|Caps|Event|EventProtocol|Notification|Pad)($|\.)/
+          ~r/^Membrane\.(Buffer|Payload|Caps|Event|EventProtocol|Notification|Pad|KeyframeRequestEvent|RemoteStream)($|\.)/
         ],
+        "Fault tolerance": [~r/^Membrane\.(CrashGroup)($|\.)/],
         Logging: [~r/^Membrane\.Logger($|\.)/],
         Testing: [~r/^Membrane\.Testing($|\.)/],
         Utils: [
