@@ -54,12 +54,8 @@ defmodule Membrane.Core.Child.PadController do
 
       state =
         case Pad.availability_mode(info.availability) do
-          :static ->
-            # state |> Bunch.Access.update_in([:pads, :info], &(&1 |> Map.delete(name)))
-            state
-
-          :dynamic ->
-            add_to_currently_linking(this.pad_ref, state)
+          :dynamic -> add_to_currently_linking(this.pad_ref, state)
+          :static -> state
         end
 
       {{:ok, info}, state}
@@ -81,21 +77,21 @@ defmodule Membrane.Core.Child.PadController do
            |> Enum.reverse()
            |> Enum.filter(&(&1 |> Pad.name_by_ref() |> Pad.is_public_name()))
            |> Bunch.Enum.try_reduce(state, &handle_pad_added/2) do
-      static_unlinked =
-        state.pads.info
-        |> Enum.flat_map(fn {name, info} ->
-          case info.availability |> Pad.availability_mode() do
-            :static -> [name]
-            _other -> []
-          end
-        end)
+      linked_pads_names = state.pads.data |> Map.values() |> Enum.map(& &1.name) |> MapSet.new()
 
-      # if not Enum.empty?(static_unlinked) do
-      #   Membrane.Logger.warn("""
-      #   Some static pads remained unlinked: #{inspect(static_unlinked)}
-      #   State: #{inspect(state, pretty: true)}
-      #   """)
-      # end
+      static_unlinked_pads =
+        state.pads.info
+        |> Map.values()
+        |> Enum.filter(
+          &(Pad.availability_mode(&1.availability) == :static and &1.name not in linked_pads_names)
+        )
+
+      unless Enum.empty?(static_unlinked_pads) do
+        Membrane.Logger.warn("""
+        Some static pads remained unlinked: #{inspect(Enum.map(static_unlinked_pads, & &1.name))}
+        State: #{inspect(state, pretty: true)}
+        """)
+      end
 
       bin? = match?(%Membrane.Core.Bin.State{}, state)
 
