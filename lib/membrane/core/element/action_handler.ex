@@ -146,6 +146,8 @@ defmodule Membrane.Core.Element.ActionHandler do
          %State{type: type} = state
        )
        when is_pad_ref(pad_ref) and is_demand_size(size) and type in [:sink, :filter] do
+    # IO.inspect({:demand, state.name})
+
     supply_demand(pad_ref, size, cb, state)
   end
 

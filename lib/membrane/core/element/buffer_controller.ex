@@ -6,9 +6,9 @@ defmodule Membrane.Core.Element.BufferController do
   use Bunch
 
   alias Membrane.{Buffer, Pad}
-  alias Membrane.Core.{CallbackHandler, InputBuffer}
+  alias Membrane.Core.{CallbackHandler, InputBuffer, Telemetry}
   alias Membrane.Core.Child.PadModel
-  alias Membrane.Core.Element.{ActionHandler, DemandHandler, State}
+  alias Membrane.Core.Element.{ActionHandler, DemandController, DemandHandler, State}
   alias Membrane.Element.CallbackContext
 
   require Membrane.Core.Child.PadModel
@@ -22,9 +22,10 @@ defmodule Membrane.Core.Element.BufferController do
   def handle_buffer(pad_ref, buffers, state) do
     PadModel.assert_data!(state, pad_ref, %{direction: :input})
 
-    case PadModel.get_data!(state, pad_ref, :mode) do
-      :pull -> handle_buffer_pull(pad_ref, buffers, state)
-      :push -> exec_buffer_handler(pad_ref, buffers, state)
+    case PadModel.get_data!(state, pad_ref) do
+      %{mode: :pull, demand_pads: []} -> handle_buffer_pull(pad_ref, buffers, state)
+      %{mode: :pull} -> handle_buffer_auto_pull(pad_ref, buffers, state)
+      %{mode: :push} -> exec_buffer_handler(pad_ref, buffers, state)
     end
   end
 
@@ -34,30 +35,28 @@ defmodule Membrane.Core.Element.BufferController do
   @spec exec_buffer_handler(
           Pad.ref_t(),
           [Buffer.t()] | Buffer.t(),
-          params :: map,
           State.t()
         ) :: State.stateful_try_t()
-  def exec_buffer_handler(pad_ref, buffers, params \\ %{}, state)
-
-  def exec_buffer_handler(pad_ref, buffers, params, %State{type: :filter} = state) do
+  def exec_buffer_handler(pad_ref, buffers, %State{type: :filter} = state) do
     require CallbackContext.Process
+    Telemetry.report_metric("buffer", 1, inspect(pad_ref))
 
     CallbackHandler.exec_and_handle_callback(
       :handle_process_list,
       ActionHandler,
-      %{context: &CallbackContext.Process.from_state/1} |> Map.merge(params),
+      %{context: &CallbackContext.Process.from_state/1},
       [pad_ref, buffers],
       state
     )
   end
 
-  def exec_buffer_handler(pad_ref, buffers, params, %State{type: :sink} = state) do
+  def exec_buffer_handler(pad_ref, buffers, %State{type: :sink} = state) do
     require CallbackContext.Write
 
     CallbackHandler.exec_and_handle_callback(
       :handle_write_list,
       ActionHandler,
-      %{context: &CallbackContext.Write.from_state/1} |> Map.merge(params),
+      %{context: &CallbackContext.Write.from_state/1},
       [pad_ref, buffers],
       state
     )
@@ -66,8 +65,6 @@ defmodule Membrane.Core.Element.BufferController do
   @spec handle_buffer_pull(Pad.ref_t(), [Buffer.t()] | Buffer.t(), State.t()) ::
           State.stateful_try_t()
   defp handle_buffer_pull(pad_ref, buffers, state) do
-    PadModel.assert_data!(state, pad_ref, %{direction: :input})
-
     with {:ok, old_input_buf} <- PadModel.get_data(state, pad_ref, :input_buf) do
       input_buf = InputBuffer.store(old_input_buf, buffers)
       state = PadModel.set_data!(state, pad_ref, :input_buf, input_buf)
@@ -80,5 +77,11 @@ defmodule Membrane.Core.Element.BufferController do
     else
       {:error, reason} -> {{:error, reason}, state}
     end
+  end
+
+  defp handle_buffer_auto_pull(pad_ref, buffers, state) do
+    state = PadModel.update_data!(state, pad_ref, :demand, &(&1 - length(buffers)))
+    state = DemandController.check_auto_demand(pad_ref, state)
+    exec_buffer_handler(pad_ref, buffers, state)
   end
 end

@@ -204,14 +204,14 @@ defmodule Membrane.Core.ElementTest do
                get_state()
              )
 
-    assert reply == %{
+    assert %{
              accepted_caps: :any,
              availability: :always,
              direction: :output,
              mode: :pull,
              name: :output,
              options: nil
-           }
+           } = reply
 
     assert %Membrane.Pad.Data{pid: ^pid, other_ref: :input, other_demand_unit: :buffers} =
              state.pads.data.output

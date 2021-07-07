@@ -36,7 +36,6 @@ defmodule Membrane.Core.Child.PadControllerTest do
                )
 
       assert %{new_state | pads: nil} == %{state | pads: nil}
-      refute new_state.pads.info |> Map.has_key?(:output)
       assert PadModel.assert_instance(new_state, :output) == :ok
     end
 
