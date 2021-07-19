@@ -22,11 +22,12 @@ defmodule Membrane.Core.Element do
 
   alias Membrane.{Clock, Element, Sync}
   alias Membrane.Core.Element.{LifecycleController, PlaybackBuffer, State}
-  alias Membrane.Core.{Child, Message, PlaybackHandler, TimerController}
+  alias Membrane.Core.{Child, Message, PlaybackHandler, Telemetry, TimerController}
   alias Membrane.ComponentPath
   alias Membrane.Core.Child.PadController
 
   require Membrane.Core.Message
+  require Membrane.Core.Telemetry
   require Membrane.Logger
 
   @type options_t :: %{
@@ -100,6 +101,8 @@ defmodule Membrane.Core.Element do
 
     :ok = ComponentPath.set_and_append(options.log_metadata[:parent_path] || [], name_str)
 
+    Telemetry.report_init(:element)
+
     state =
       options
       |> Map.take([:module, :name, :parent_clock, :sync])
@@ -115,6 +118,8 @@ defmodule Membrane.Core.Element do
 
   @impl GenServer
   def terminate(reason, state) do
+    Telemetry.report_terminate(:element)
+
     {:ok, _state} = LifecycleController.handle_shutdown(reason, state)
 
     :ok
@@ -208,6 +213,11 @@ defmodule Membrane.Core.Element do
 
   @impl GenServer
   def handle_info(message, state) do
+    Telemetry.report_metric(
+      :queue_len,
+      :erlang.process_info(self(), :message_queue_len) |> elem(1)
+    )
+
     LifecycleController.handle_other(message, state) |> noreply(state)
   end
 end

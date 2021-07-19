@@ -6,6 +6,7 @@ defmodule Membrane.Core.Pipeline do
   alias Membrane.Clock
   alias Membrane.Core.CallbackHandler
   alias Membrane.Core.Parent.MessageDispatcher
+  alias Membrane.Core.Telemetry
 
   require Membrane.Logger
 
@@ -14,6 +15,9 @@ defmodule Membrane.Core.Pipeline do
     pipeline_name = "pipeline@#{:erlang.pid_to_list(self())}"
     :ok = Membrane.ComponentPath.set([pipeline_name])
     :ok = Membrane.Logger.set_prefix(pipeline_name)
+
+    Telemetry.report_init(:pipeline)
+
     {:ok, clock} = Clock.start_link(proxy: true)
 
     state = %State{
@@ -44,6 +48,8 @@ defmodule Membrane.Core.Pipeline do
 
   @impl GenServer
   def terminate(reason, state) do
+    Telemetry.report_terminate(:pipeline)
+
     :ok = state.module.handle_shutdown(reason, state.internal_state)
   end
 end

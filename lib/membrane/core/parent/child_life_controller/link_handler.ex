@@ -143,7 +143,7 @@ defmodule Membrane.Core.Parent.ChildLifeController.LinkHandler do
   end
 
   defp link(%Link{from: from, to: to}, state) do
-    Telemetry.report_new_link(from, to)
+    Telemetry.report_link(from, to)
     do_link(from, to, state)
   end
 

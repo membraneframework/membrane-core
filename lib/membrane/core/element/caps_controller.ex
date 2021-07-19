@@ -19,7 +19,7 @@ defmodule Membrane.Core.Element.CapsController do
   """
   @spec handle_caps(Pad.ref_t(), Caps.t(), State.t()) :: State.stateful_try_t()
   def handle_caps(pad_ref, caps, state) do
-    Telemetry.report_metric("caps", 1, inspect(pad_ref))
+    Telemetry.report_metric(:caps, 1, inspect(pad_ref))
 
     PadModel.assert_data!(state, pad_ref, %{direction: :input})
     data = PadModel.get_data!(state, pad_ref)

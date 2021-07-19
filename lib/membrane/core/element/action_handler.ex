@@ -12,6 +12,7 @@ defmodule Membrane.Core.Element.ActionHandler do
   alias Membrane.Core.Element.{DemandHandler, LifecycleController, State}
   alias Membrane.Core.{Events, Message, PlaybackHandler, TimerController}
   alias Membrane.Core.Child.PadModel
+  alias Membrane.Core.Telemetry
   alias Membrane.Core.Element.{DemandHandler, LifecycleController, State}
   alias Membrane.Element.Action
 
@@ -252,6 +253,9 @@ defmodule Membrane.Core.Element.ActionHandler do
     Membrane.Logger.debug_verbose(
       "Sending #{length(buffers)} buffer(s) through pad #{inspect(pad_ref)}"
     )
+
+    Telemetry.report_metric(:buffer, length(buffers))
+    Telemetry.report_bitrate(buffers)
 
     withl buffers:
             :ok <-

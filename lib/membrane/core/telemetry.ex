@@ -3,7 +3,6 @@ defmodule Membrane.Core.Telemetry do
 
   alias Membrane.ComponentPath
   alias Membrane.Core.Parent.Link.Endpoint
-  alias Membrane.Telemetry
 
   require Membrane.Pad
 
@@ -12,16 +11,14 @@ defmodule Membrane.Core.Telemetry do
   @doc """
   Macro for reporting metrics.
 
-  Provided `calculate_measurement` is a function.
-
   Metrics are reported only when it is enabled in the application using Membrane Core.
   """
-  defmacro report_measurement(event_name, calculate_measurement) do
+  defmacro report_event(event_name, measurement) do
     if @enable_telemetry do
       quote do
         :telemetry.execute(
           unquote(event_name),
-          unquote(calculate_measurement).(),
+          unquote(measurement),
           %{}
         )
       end
@@ -30,7 +27,7 @@ defmodule Membrane.Core.Telemetry do
       quote do
         fn ->
           _unused = unquote(event_name)
-          _unused = unquote(calculate_measurement)
+          _unused = unquote(measurement)
         end
 
         :ok
@@ -41,49 +38,69 @@ defmodule Membrane.Core.Telemetry do
   @doc """
   Reports metrics such as input buffer's size inside functions, incoming events and received caps.
   """
-  @spec report_metric(String.t(), integer(), String.t()) :: :ok
-  def report_metric(metric, value, log_tag) do
-    calculate_measurement = fn ->
-      component_path = ComponentPath.get_formatted() <> "/" <> (log_tag || "")
-
+  @spec report_metric(atom(), integer(), String.t() | nil) :: :ok
+  def report_metric(metric, value, log_tag \\ nil) do
+    report_event(
+      [:membrane, :metric, :value],
       %{
-        component_path: component_path,
-        metric: metric,
+        component_path: ComponentPath.get_formatted() <> "/" <> (log_tag || ""),
+        metric: Atom.to_string(metric),
         value: value
       }
-    end
+    )
+  end
 
-    report_measurement(
-      Telemetry.metric_event_name(),
-      calculate_measurement
+  @doc """
+  Given list of buffers (or a single buffer) calculates total size of their payloads in bits
+  and reports it.
+  """
+  @spec report_bitrate(buffers :: [Membrane.Buffer.t()]) :: :ok
+  def report_bitrate(buffers) do
+    report_event(
+      [:membrane, :metric, :value],
+      %{
+        component_path: ComponentPath.get_formatted() <> "/",
+        metric: "bitrate",
+        value: 8 * Enum.reduce(buffers, 0, &(Membrane.Payload.size(&1.payload) + &2))
+      }
     )
   end
 
   @doc """
   Reports new link connection being initialized in pipeline.
   """
-  @spec report_new_link(Endpoint.t(), Endpoint.t()) :: :ok
-  def report_new_link(from, to) do
-    calculate_measurement = fn ->
-      %Endpoint{child: from_child, pad_ref: from_pad} = from
-      %Endpoint{child: to_child, pad_ref: to_pad} = to
-
+  @spec report_link(Endpoint.t(), Endpoint.t()) :: :ok
+  def report_link(from, to) do
+    report_event(
+      [:membrane, :link, :new],
       %{
         parent_path: Membrane.ComponentPath.get_formatted(),
-        from: "#{inspect(from_child)}",
-        to: "#{inspect(to_child)}",
-        pad_from: "#{inspect(get_public_pad_name(from_pad))}",
-        pad_to: "#{inspect(get_public_pad_name(to_pad))}"
+        from: inspect(from.child),
+        to: inspect(to.child),
+        pad_from: get_public_pad_name(from.pad_ref) |> inspect(),
+        pad_to: get_public_pad_name(to.pad_ref) |> inspect()
       }
-    end
-
-    report_measurement(
-      Telemetry.new_link_event_name(),
-      calculate_measurement
     )
   end
 
-  defp get_public_pad_name(pad) do
+  @spec report_init(:pipeline | :bin | :element) :: :ok
+  def report_init(type) when type in [:pipeline, :bin, :element] do
+    report_event(
+      [:membrane, type, :init],
+      %{path: ComponentPath.get_formatted()}
+    )
+  end
+
+  @spec report_terminate(:pipeline | :bin | :element) :: :ok
+  def report_terminate(type) when type in [:pipeline, :bin, :element] do
+    report_event(
+      [:membrane, type, :terminate],
+      %{path: ComponentPath.get_formatted()}
+    )
+  end
+
+  @spec get_public_pad_name(Membrane.Pad.ref_t()) :: Membrane.Pad.ref_t()
+  def get_public_pad_name(pad) do
     case pad do
       {:private, direction} -> direction
       {Membrane.Pad, {:private, direction}, ref} -> {Membrane.Pad, direction, ref}

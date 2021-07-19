@@ -27,7 +27,7 @@ defmodule Membrane.Core.Element.EventController do
   """
   @spec handle_event(Pad.ref_t(), Event.t(), State.t()) :: State.stateful_try_t()
   def handle_event(pad_ref, event, state) do
-    Telemetry.report_metric("event", 1, inspect(pad_ref))
+    Telemetry.report_metric(:event, 1, inspect(pad_ref))
 
     pad_data = PadModel.get_data!(state, pad_ref)
 

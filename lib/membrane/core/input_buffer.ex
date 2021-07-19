@@ -133,7 +133,8 @@ defmodule Membrane.Core.InputBuffer do
 
     %__MODULE__{current_size: size} = input_buf = do_store_buffers(input_buf, v)
 
-    report_buffer_size("store", size, input_buf)
+    Telemetry.report_metric(:store, size, input_buf.log_tag)
+
     input_buf
   end
 
@@ -198,7 +199,7 @@ defmodule Membrane.Core.InputBuffer do
         :ok
     end
 
-    report_buffer_size("store", size, input_buf)
+    Telemetry.report_metric(:store, size, input_buf.log_tag)
 
     input_buf
   end
@@ -209,7 +210,7 @@ defmodule Membrane.Core.InputBuffer do
       when type in @non_buf_types do
     "Storing #{type}" |> mk_log(input_buf) |> Membrane.Logger.debug_verbose()
 
-    report_buffer_size("store", size, input_buf)
+    Telemetry.report_metric(:store, size, input_buf.log_tag)
 
     %__MODULE__{input_buf | q: q |> @qe.push({:non_buffer, type, v})}
   end
@@ -236,7 +237,7 @@ defmodule Membrane.Core.InputBuffer do
       |> Bunch.Struct.update_in(:demand, &(&1 + size - new_size))
       |> send_demands(demand_pid, demand_pad)
 
-    report_buffer_size("take_and_demand", new_size, input_buf)
+    Telemetry.report_metric(:take_and_demand, new_size, input_buf.log_tag)
 
     {out, input_buf}
   end
@@ -321,10 +322,6 @@ defmodule Membrane.Core.InputBuffer do
         "preferred size: #{inspect(pref_size)}"
       end
     ]
-  end
-
-  defp report_buffer_size(method, size, %__MODULE__{log_tag: log_tag}) do
-    Telemetry.report_metric(method, size, log_tag)
   end
 
   @spec empty?(t()) :: boolean()
